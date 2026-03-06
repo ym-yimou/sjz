@@ -1,0 +1,2424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幸运转盘 - 管理后台</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- GSAP 动画库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#60a5fa',
+                        accent: '#2563eb',
+                        dark: {
+                            primary: '#1e40af',
+                            secondary: '#3b82f6',
+                            background: '#0f172a',
+                            card: '#1e293b'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .text-shadow-lg {
+                text-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+            .glass {
+                background: rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+            .dark .glass {
+                background: rgba(30, 41, 59, 0.75);
+                border: 1px solid rgba(59, 130, 246, 0.18);
+            }
+            .transition-all-300 {
+                transition: all 0.3s ease;
+            }
+        }
+        
+        /* 登录页面样式 */
+        .login-bg {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        
+        .dark .login-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        
+        .login-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .login-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* 后台页面样式 */
+        .sidebar {
+            transition: width 0.3s ease, padding 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            width: 70px;
+            padding: 1rem 0.5rem;
+        }
+        
+        .sidebar.collapsed .sidebar-text {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-logo .logo-text {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-footer .sidebar-text {
+            display: none;
+        }
+        
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-item:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        
+        .dark .sidebar-item:hover {
+            background-color: rgba(59, 130, 246, 0.2);
+        }
+        
+        .sidebar-item.active {
+            background-color: rgba(59, 130, 246, 0.2);
+            border-left: 4px solid theme('colors.primary');
+        }
+        
+        .dark .sidebar-item.active {
+            background-color: rgba(59, 130, 246, 0.3);
+            border-left: 4px solid theme('colors.dark.secondary');
+        }
+        
+        /* 表单样式 */
+        .form-input {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .form-input:focus {
+            border-color: theme('colors.primary');
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        /* 动画效果 */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 加载动画 */
+        .loading {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            100% { left: 100%; }
+        }
+        
+        /* 模态框动画 */
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+        
+        .modal.hidden .modal-content {
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-dark-background transition-colors duration-300 min-h-screen">
+    <!-- 登录页面 -->
+    <div id="loginPage" class="login-bg min-h-screen flex items-center justify-center p-4">
+        <div class="login-card bg-white dark:bg-dark-card rounded-xl shadow-2xl p-8 w-full max-w-md glass">
+            <div class="text-center mb-8">
+                <div class="flex justify-center mb-4">
+                    <div class="w-16 h-16 rounded-full bg-primary dark:bg-dark-primary flex items-center justify-center">
+                        <i class="fa fa-trophy text-white text-3xl"></i>
+                    </div>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">幸运转盘管理后台</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-2">请登录以访问管理功能</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">用户名</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">
+                            <i class="fa fa-user"></i>
+                        </span>
+                        <input type="text" id="username" name="username" class="form-input w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入用户名" required>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">密码</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">
+                            <i class="fa fa-lock"></i>
+                        </span>
+                        <input type="password" id="password" name="password" class="form-input w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入密码" required>
+                        <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                            <i class="fa fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="remember" name="remember" class="h-4 w-4 text-primary dark:text-dark-secondary focus:ring-primary dark:focus:ring-dark-secondary border-gray-300 dark:border-gray-600 rounded">
+                        <label for="remember" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">记住我</label>
+                    </div>
+                    <a href="#" class="text-sm text-primary dark:text-dark-secondary hover:text-accent dark:hover:text-dark-primary">忘记密码?</a>
+                </div>
+                
+                <button type="submit" id="loginBtn" class="w-full bg-primary dark:bg-dark-primary hover:bg-accent dark:hover:bg-dark-secondary text-white font-bold py-2 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg">
+                    登录
+                </button>
+            </form>
+            
+            <div id="loginError" class="mt-4 p-3 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg hidden">
+                <i class="fa fa-exclamation-circle mr-2"></i>
+                <span id="errorMessage">用户名或密码错误</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 后台管理页面 -->
+    <div id="adminPage" class="hidden min-h-screen flex flex-col">
+        <!-- 顶部导航栏 -->
+        <header class="bg-white dark:bg-dark-card shadow-md z-10">
+            <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center space-x-4">
+                    <button id="toggleSidebar" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <h1 class="text-xl font-bold text-gray-800 dark:text-white">幸运转盘管理</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        <i class="fa fa-moon-o dark:hidden"></i>
+                        <i class="fa fa-sun-o hidden dark:block text-yellow-300"></i>
+                    </button>
+                    <div class="relative">
+                        <button id="userMenuBtn" class="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <div class="w-8 h-8 rounded-full bg-primary dark:bg-dark-primary flex items-center justify-center text-white">
+                                <i class="fa fa-user"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800 dark:text-white">管理员</span>
+                            <i class="fa fa-chevron-down text-xs text-gray-500 dark:text-gray-400"></i>
+                        </button>
+                        <div id="userMenu" class="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-card rounded-lg shadow-lg py-2 z-20 hidden">
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fa fa-user-circle mr-2"></i> 个人资料
+                            </a>
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fa fa-cog mr-2"></i> 设置
+                            </a>
+                            <hr class="my-1 border-gray-200 dark:border-gray-700">
+                            <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fa fa-sign-out mr-2"></i> 退出登录
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 侧边栏 -->
+            <aside id="sidebar" class="sidebar bg-white dark:bg-dark-card shadow-md w-64 flex flex-col transition-all duration-300">
+                <!-- 侧边栏头部 -->
+                <div class="sidebar-logo p-4 flex items-center space-x-2 border-b border-gray-200 dark:border-gray-700">
+                    <div class="w-8 h-8 rounded-full bg-primary dark:bg-dark-primary flex items-center justify-center">
+                        <i class="fa fa-trophy text-white"></i>
+                    </div>
+                    <span class="logo-text font-bold text-gray-800 dark:text-white">幸运转盘</span>
+                </div>
+                
+                <!-- 侧边栏菜单 -->
+                <nav class="flex-1 py-4 space-y-1 px-2">
+                    <a href="#dashboard" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 active" data-section="dashboard">
+                        <i class="fa fa-dashboard text-lg w-6 text-center"></i>
+                        <span class="sidebar-text">仪表盘</span>
+                    </a>
+                    <a href="#prizes" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300" data-section="prizes">
+                        <i class="fa fa-gift text-lg w-6 text-center"></i>
+                        <span class="sidebar-text">奖品管理</span>
+                    </a>
+                    <a href="#probability" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300" data-section="probability">
+                        <i class="fa fa-pie-chart text-lg w-6 text-center"></i>
+                        <span class="sidebar-text">概率设置</span>
+                    </a>
+                    <a href="#history" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300" data-section="history">
+                        <i class="fa fa-history text-lg w-6 text-center"></i>
+                        <span class="sidebar-text">抽奖记录</span>
+                    </a>
+                    <a href="#settings" class="sidebar-item flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300" data-section="settings">
+                        <i class="fa fa-cog text-lg w-6 text-center"></i>
+                        <span class="sidebar-text">系统设置</span>
+                    </a>
+                </nav>
+                
+                <!-- 侧边栏底部 -->
+                <div class="sidebar-footer p-4 border-t border-gray-200 dark:border-gray-700">
+                    <a href="index.html" target="_blank" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <i class="fa fa-external-link text-lg w-6 text-center"></i>
+                        <span class="sidebar-text">查看前台</span>
+                    </a>
+                </div>
+            </aside>
+            
+            <!-- 主内容区 -->
+            <main class="flex-1 overflow-y-auto bg-gray-50 dark:bg-dark-background p-6">
+                <!-- 仪表盘 -->
+                <section id="dashboard" class="section fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">仪表盘</h2>
+                        <p class="text-gray-600 dark:text-gray-400">欢迎回来，管理员</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <!-- 添加抽奖次数卡片 -->
+                        <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 transition-all hover:shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">添加抽奖次数</p>
+                                    <div class="mt-4 flex space-x-2">
+                                        <input type="number" id="addSpinsInput" class="form-input flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="输入次数" min="1" max="100">
+                                        <button id="addSpinsBtn" class="px-4 py-2 bg-primary dark:bg-dark-primary hover:bg-accent dark:hover:bg-dark-secondary text-white font-medium rounded-lg transition-all">
+                                            添加
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                                    <i class="fa fa-plus-circle text-purple-500 dark:text-purple-400 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 统计卡片 1 -->
+                        <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 transition-all hover:shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">总奖品数</p>
+                                    <h3 id="totalPrizes" class="text-2xl font-bold text-gray-800 dark:text-white mt-1">6</h3>
+                                </div>
+                                <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                                    <i class="fa fa-gift text-primary dark:text-blue-400 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-sm">
+                                <span class="text-green-500 flex items-center">
+                                    <i class="fa fa-arrow-up mr-1"></i> 0%
+                                </span>
+                                <span class="text-gray-500 dark:text-gray-400 ml-2">较上月</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 统计卡片 2 -->
+                        <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 transition-all hover:shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">总抽奖次数</p>
+                                    <h3 id="totalSpins" class="text-2xl font-bold text-gray-800 dark:text-white mt-1">0</h3>
+                                </div>
+                                <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                                    <i class="fa fa-refresh text-green-500 dark:text-green-400 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-sm">
+                                <span class="text-green-500 flex items-center">
+                                    <i class="fa fa-arrow-up mr-1"></i> 0%
+                                </span>
+                                <span class="text-gray-500 dark:text-gray-400 ml-2">较上月</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 统计卡片 3 -->
+                        <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 transition-all hover:shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">中奖率</p>
+                                    <h3 id="winRate" class="text-2xl font-bold text-gray-800 dark:text-white mt-1">75%</h3>
+                                </div>
+                                <div class="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
+                                    <i class="fa fa-bullseye text-yellow-500 dark:text-yellow-400 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-sm">
+                                <span class="text-red-500 flex items-center">
+                                    <i class="fa fa-arrow-down mr-1"></i> 0%
+                                </span>
+                                <span class="text-gray-500 dark:text-gray-400 ml-2">较上月</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 统计卡片 4 -->
+                        <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 transition-all hover:shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">今日活跃用户</p>
+                                    <h3 id="activeUsers" class="text-2xl font-bold text-gray-800 dark:text-white mt-1">0</h3>
+                                </div>
+                                <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
+                                    <i class="fa fa-users text-red-500 dark:text-red-400 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex items-center text-sm">
+                                <span class="text-green-500 flex items-center">
+                                    <i class="fa fa-arrow-up mr-1"></i> 0%
+                                </span>
+                                <span class="text-gray-500 dark:text-gray-400 ml-2">较昨日</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- 图表 1 -->
+                        <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">抽奖趋势</h3>
+                            <div class="h-80">
+                                <canvas id="spinTrendChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- 图表 2 -->
+                        <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">奖品分布</h3>
+                            <div class="h-80">
+                                <canvas id="prizeDistributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 奖品管理 -->
+                <section id="prizes" class="section hidden fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">奖品管理</h2>
+                            <p class="text-gray-600 dark:text-gray-400">管理所有奖品信息</p>
+                        </div>
+                        <button id="addPrizeBtn" class="flex items-center space-x-2 bg-primary dark:bg-dark-primary hover:bg-accent dark:hover:bg-dark-secondary text-white font-medium py-2 px-4 rounded-lg transition-all">
+                            <i class="fa fa-plus"></i>
+                            <span>添加奖品</span>
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-dark-card rounded-xl shadow-md overflow-hidden">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <div class="flex items-center space-x-2">
+                                    <div class="relative">
+                                        <input type="text" id="prizeSearch" class="form-input pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="搜索奖品...">
+                                        <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400"></i>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <select id="prizeFilter" class="form-select py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                                        <option value="all">所有奖品</option>
+                                        <option value="win">中奖奖品</option>
+                                        <option value="thank">谢谢参与</option>
+                                    </select>
+                                    <button id="refreshPrizes" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                        <i class="fa fa-refresh"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">奖品名称</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">描述</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">概率</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">颜色</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">图标</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prizeTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    <!-- 奖品数据将通过JS动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">
+                                显示 <span id="showingPrizes">0</span> 条，共 <span id="totalPrizesCount">0</span> 条
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button id="prevPage" class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fa fa-chevron-left"></i>
+                                </button>
+                                <button id="nextPage" class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fa fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 概率设置 -->
+                <section id="probability" class="section hidden fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">概率设置</h2>
+                        <p class="text-gray-600 dark:text-gray-400">调整各奖品的中奖概率</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- 左侧概率调整 -->
+                        <div class="lg:col-span-2">
+                            <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">概率调整</h3>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">拖动滑块调整各奖品的中奖概率，总概率必须为100%</p>
+                                
+                                <div id="probabilitySliders" class="space-y-6">
+                                    <!-- 概率滑块将通过JS动态生成 -->
+                                </div>
+                                
+                                <div class="mt-8 flex justify-between items-center">
+                                    <div>
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">总概率:</span>
+                                        <span id="totalProbability" class="ml-2 text-lg font-bold text-primary dark:text-dark-secondary">100%</span>
+                                        <span id="probabilityError" class="ml-2 text-sm text-red-500 hidden">总概率必须为100%</span>
+                                    </div>
+                                    <button id="saveProbabilities" class="flex items-center space-x-2 bg-primary dark:bg-dark-primary hover:bg-accent dark:hover:bg-dark-secondary text-white font-medium py-2 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <i class="fa fa-save"></i>
+                                        <span>保存设置</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 右侧图表预览 -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">概率预览</h3>
+                                <div class="h-80">
+                                    <canvas id="probabilityPreviewChart"></canvas>
+                                </div>
+                                <div class="mt-4 text-center">
+                                    <button id="resetProbabilities" class="text-sm text-primary dark:text-dark-secondary hover:text-accent dark:hover:text-dark-primary">
+                                        <i class="fa fa-refresh mr-1"></i> 重置为默认值
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 抽奖记录 -->
+                <section id="history" class="section hidden fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">抽奖记录</h2>
+                        <p class="text-gray-600 dark:text-gray-400">查看所有抽奖记录</p>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-dark-card rounded-xl shadow-md overflow-hidden">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <div class="flex items-center space-x-2">
+                                    <div class="relative">
+                                        <input type="text" id="historySearch" class="form-input pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="搜索记录...">
+                                        <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400"></i>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <select id="historyFilter" class="form-select py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                                        <option value="all">所有记录</option>
+                                        <option value="win">仅中奖</option>
+                                        <option value="thank">仅未中奖</option>
+                                    </select>
+                                    <button id="exportHistory" class="flex items-center space-x-1 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        <i class="fa fa-download"></i>
+                                        <span>导出</span>
+                                    </button>
+                                    <button id="clearHistory" class="flex items-center space-x-1 py-2 px-3 border border-red-300 dark:border-red-600 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900">
+                                        <i class="fa fa-trash"></i>
+                                        <span>清空</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">奖品名称</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">结果</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">时间</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    <!-- 抽奖记录将通过JS动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">
+                                显示 <span id="showingHistory">0</span> 条，共 <span id="totalHistoryCount">0</span> 条
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button id="prevHistoryPage" class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fa fa-chevron-left"></i>
+                                </button>
+                                <button id="nextHistoryPage" class="px-3 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fa fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 系统设置 -->
+                <section id="settings" class="section hidden fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">系统设置</h2>
+                        <p class="text-gray-600 dark:text-gray-400">配置系统参数</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- 基本设置 -->
+                        <div class="lg:col-span-2">
+                            <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">基本设置</h3>
+                                
+                                <form id="settingsForm" class="space-y-6">
+                                    <div>
+                                        <label for="siteName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">网站名称</label>
+                                        <input type="text" id="siteName" name="siteName" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="幸运转盘抽奖">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="maxSpins" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">每用户最大抽奖次数</label>
+                                        <input type="number" id="maxSpins" name="maxSpins" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="3" min="1" max="100">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="spinCooldown" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">抽奖冷却时间（秒）</label>
+                                        <input type="number" id="spinCooldown" name="spinCooldown" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" value="0" min="0" max="3600">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="wheelSpeed" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">转盘旋转速度</label>
+                                        <select id="wheelSpeed" name="wheelSpeed" class="form-select w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
+                                            <option value="slow">慢速</option>
+                                            <option value="medium" selected>中速</option>
+                                            <option value="fast">快速</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">系统状态</label>
+                                        <div class="flex items-center space-x-4">
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="systemStatus" value="active" class="form-radio text-primary dark:text-dark-secondary" checked>
+                                                <span class="ml-2 text-gray-700 dark:text-gray-300">启用</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="systemStatus" value="maintenance" class="form-radio text-primary dark:text-dark-secondary">
+                                                <span class="ml-2 text-gray-700 dark:text-gray-300">维护中</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="systemStatus" value="disabled" class="form-radio text-primary dark:text-dark-secondary">
+                                                <span class="ml-2 text-gray-700 dark:text-gray-300">禁用</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="pt-4">
+                                        <button type="submit" id="saveSettings" class="flex items-center space-x-2 bg-primary dark:bg-dark-primary hover:bg-accent dark:hover:bg-dark-secondary text-white font-medium py-2 px-4 rounded-lg transition-all">
+                                            <i class="fa fa-save"></i>
+                                            <span>保存设置</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <!-- 管理员账户设置 -->
+                            <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6 mt-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">管理员账户</h3>
+                                
+                                <form id="adminForm" class="space-y-6">
+                                    <div>
+                                        <label for="adminUsername" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">用户名</label>
+                                        <input type="text" id="adminUsername" name="adminUsername" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入新用户名">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="currentPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">当前密码</label>
+                                        <input type="password" id="currentPassword" name="currentPassword" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入当前密码">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="newPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">新密码</label>
+                                        <input type="password" id="newPassword" name="newPassword" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入新密码">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="confirmPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">确认新密码</label>
+                                        <input type="password" id="confirmPassword" name="confirmPassword" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请再次输入新密码">
+                                    </div>
+                                    
+                                    <div class="pt-4">
+                                        <button type="submit" id="saveAdmin" class="flex items-center space-x-2 bg-primary dark:bg-dark-primary hover:bg-accent dark:hover:bg-dark-secondary text-white font-medium py-2 px-4 rounded-lg transition-all">
+                                            <i class="fa fa-save"></i>
+                                            <span>更新账户信息</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- 高级设置 -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-white dark:bg-dark-card rounded-xl shadow-md p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">高级设置</h3>
+                                
+                                <div class="space-y-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">数据管理</label>
+                                        <div class="space-y-2">
+                                            <button id="exportData" class="w-full flex items-center justify-center space-x-2 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                                                <i class="fa fa-download"></i>
+                                                <span>导出数据</span>
+                                            </button>
+                                            <button id="importData" class="w-full flex items-center justify-center space-x-2 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                                                <i class="fa fa-upload"></i>
+                                                <span>导入数据</span>
+                                            </button>
+                                            <button id="resetData" class="w-full flex items-center justify-center space-x-2 py-2 px-4 border border-red-300 dark:border-red-600 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 transition-all">
+                                                <i class="fa fa-refresh"></i>
+                                                <span>重置数据</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">缓存管理</label>
+                                        <div class="space-y-2">
+                                            <button id="clearCache" class="w-full flex items-center justify-center space-x-2 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                                                <i class="fa fa-trash"></i>
+                                                <span>清除缓存</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">系统信息</label>
+                                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300">
+                                            <div class="flex justify-between mb-2">
+                                                <span>版本:</span>
+                                                <span class="font-medium">1.0.0</span>
+                                            </div>
+                                            <div class="flex justify-between mb-2">
+                                                <span>最后更新:</span>
+                                                <span class="font-medium">2025-07-21</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span>存储空间:</span>
+                                                <span class="font-medium">0 KB</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    
+    <!-- 添加/编辑奖品模态框 -->
+    <div id="prizeModal" class="modal fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 hidden">
+        <div class="modal-content bg-white dark:bg-dark-card rounded-xl shadow-2xl p-8 max-w-lg w-full mx-4 transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="prizeModalTitle" class="text-2xl font-bold text-gray-800 dark:text-white">添加奖品</h2>
+                <button id="closePrizeModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="prizeForm" class="space-y-6">
+                <input type="hidden" id="prizeId">
+                
+                <div>
+                    <label for="prizeName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">奖品名称 <span class="text-red-500">*</span></label>
+                    <input type="text" id="prizeName" name="prizeName" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入奖品名称" required>
+                </div>
+                
+                <div>
+                    <label for="prizeDescription" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">奖品描述</label>
+                    <textarea id="prizeDescription" name="prizeDescription" rows="3" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入奖品描述"></textarea>
+                </div>
+                
+                <div>
+                    <label for="prizeProbability" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">中奖概率 (%) <span class="text-red-500">*</span></label>
+                    <input type="number" id="prizeProbability" name="prizeProbability" class="form-input w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="请输入中奖概率" min="0" max="100" required>
+                </div>
+                
+                <div>
+                    <label for="prizeColor" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">颜色 <span class="text-red-500">*</span></label>
+                    <div class="flex items-center space-x-4">
+                        <input type="color" id="prizeColor" name="prizeColor" class="w-12 h-12 rounded-lg border-0 cursor-pointer" value="#3b82f6" required>
+                        <input type="text" id="prizeColorText" class="form-input flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="#3b82f6" value="#3b82f6" required>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="prizeIcon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">图标 <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <input type="text" id="prizeIcon" name="prizeIcon" class="form-input w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none bg-white dark:bg-gray-700 text-gray-800 dark:text-white" placeholder="fa-gift" value="fa-gift" required>
+                        <i id="previewIcon" class="fa fa-gift absolute left-3 top-1/2 transform -translate-y-1/2 text-primary dark:text-dark-secondary text-xl"></i>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">请输入 Font Awesome 图标类名，例如: fa-gift</p>
+                </div>
+                
+                <div class="pt-4 flex justify-end space-x-4">
+                    <button type="button" id="cancelPrize" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium rounded-lg transition-all">
+                        取消
+                    </button>
+                    <button type="submit" id="savePrize" class="px-6 py-2 bg-primary dark:bg-dark-primary hover:bg-accent dark:hover:bg-dark-secondary text-white font-medium rounded-lg transition-all">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 确认对话框 -->
+    <div id="confirmModal" class="modal fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 hidden">
+        <div class="modal-content bg-white dark:bg-dark-card rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 transform scale-95">
+            <div class="text-center">
+                <div id="confirmIcon" class="mx-auto text-6xl mb-4 text-yellow-500">
+                    <i class="fa fa-exclamation-triangle"></i>
+                </div>
+                <h2 id="confirmTitle" class="text-2xl font-bold mb-2 text-gray-800 dark:text-white">确认操作</h2>
+                <p id="confirmMessage" class="text-gray-600 dark:text-gray-300 mb-6">您确定要执行此操作吗？此操作无法撤销。</p>
+                <div class="flex justify-center space-x-4">
+                    <button id="cancelConfirm" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium rounded-lg transition-all">
+                        取消
+                    </button>
+                    <button id="confirmAction" class="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-all">
+                        确认
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知提示 -->
+    <div id="notification" class="fixed top-4 right-4 z-50 max-w-sm bg-white dark:bg-dark-card rounded-lg shadow-lg border-l-4 border-primary dark:border-dark-primary transform translate-x-full transition-transform duration-300 ease-in-out">
+        <div class="p-4 flex items-start">
+            <div class="flex-shrink-0">
+                <i id="notificationIcon" class="fa fa-check-circle text-green-500 text-xl"></i>
+            </div>
+            <div class="ml-3 flex-1">
+                <p id="notificationTitle" class="text-sm font-medium text-gray-800 dark:text-white">操作成功</p>
+                <p id="notificationMessage" class="mt-1 text-sm text-gray-600 dark:text-gray-400">您的操作已成功完成。</p>
+            </div>
+            <button id="closeNotification" class="ml-4 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let prizes = [
+            { id: 1, name: '一等奖', description: 'iPhone 15 Pro', probability: 5, color: '#FF6B6B', icon: 'fa-apple' },
+            { id: 2, name: '二等奖', description: 'AirPods Pro', probability: 10, color: '#4ECDC4', icon: 'fa-headphones' },
+            { id: 3, name: '三等奖', description: '100元京东卡', probability: 15, color: '#45B7D1', icon: 'fa-gift' },
+            { id: 4, name: '四等奖', description: '50元话费', probability: 20, color: '#96CEB4', icon: 'fa-mobile' },
+            { id: 5, name: '五等奖', description: '10元红包', probability: 25, color: '#FFEAA7', icon: 'fa-money' },
+            { id: 6, name: '谢谢参与', description: '再接再厉', probability: 25, color: '#DDA0DD', icon: 'fa-smile-o' }
+        ];
+        
+        // 管理员账户信息
+        let adminCredentials = JSON.parse(localStorage.getItem('adminCredentials')) || {
+            username: 'admin',
+            password: 'mmmkkl9990'
+        };
+        
+        let spinHistory = JSON.parse(localStorage.getItem('spinHistory')) || [];
+        let currentSection = 'dashboard';
+        let isSidebarCollapsed = false;
+        let isLoggedIn = false;
+        let editingPrizeId = null;
+        let prizePage = 1;
+        let historyPage = 1;
+        let itemsPerPage = 10;
+        
+        // DOM 元素
+        const loginPage = document.getElementById('loginPage');
+        const adminPage = document.getElementById('adminPage');
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const errorMessage = document.getElementById('errorMessage');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+        const toggleSidebar = document.getElementById('toggleSidebar');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarItems = document.querySelectorAll('.sidebar-item');
+        const sections = document.querySelectorAll('.section');
+        const userMenuBtn = document.getElementById('userMenuBtn');
+        const userMenu = document.getElementById('userMenu');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const themeToggle = document.getElementById('themeToggle');
+        const addPrizeBtn = document.getElementById('addPrizeBtn');
+        const prizeModal = document.getElementById('prizeModal');
+        const prizeModalTitle = document.getElementById('prizeModalTitle');
+        const closePrizeModal = document.getElementById('closePrizeModal');
+        const cancelPrize = document.getElementById('cancelPrize');
+        const prizeForm = document.getElementById('prizeForm');
+        const prizeColor = document.getElementById('prizeColor');
+        const prizeColorText = document.getElementById('prizeColorText');
+        const prizeIcon = document.getElementById('prizeIcon');
+        const previewIcon = document.getElementById('previewIcon');
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmTitle = document.getElementById('confirmTitle');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const confirmAction = document.getElementById('confirmAction');
+        const cancelConfirm = document.getElementById('cancelConfirm');
+        const notification = document.getElementById('notification');
+        const notificationTitle = document.getElementById('notificationTitle');
+        const notificationMessage = document.getElementById('notificationMessage');
+        const notificationIcon = document.getElementById('notificationIcon');
+        const closeNotification = document.getElementById('closeNotification');
+        
+        // 图表实例
+        let spinTrendChart;
+        let prizeDistributionChart;
+        let probabilityPreviewChart;
+        
+        // 初始化函数
+        function init() {
+            // 检查主题偏好
+            if (localStorage.getItem('theme') === 'dark' || 
+                (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+            
+            // 检查登录状态
+            checkLoginStatus();
+            
+            // 添加事件监听器
+            addEventListeners();
+        }
+        
+        // 检查登录状态
+        function checkLoginStatus() {
+            isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            
+            if (isLoggedIn) {
+                showAdminPage();
+            } else {
+                showLoginPage();
+            }
+        }
+        
+        // 显示登录页面
+        function showLoginPage() {
+            loginPage.classList.remove('hidden');
+            adminPage.classList.add('hidden');
+        }
+        
+        // 显示后台页面
+        function showAdminPage() {
+            loginPage.classList.add('hidden');
+            adminPage.classList.remove('hidden');
+            
+            // 初始化后台数据
+            initDashboard();
+            initPrizeManagement();
+            initProbabilitySettings();
+            initHistoryManagement();
+            initSettings();
+        }
+        
+        // 登录处理
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+            
+            // 验证登录信息
+            if (username === adminCredentials.username && password === adminCredentials.password) {
+                // 登录成功
+                isLoggedIn = true;
+                
+                // 保存登录状态
+                if (remember) {
+                    localStorage.setItem('isLoggedIn', 'true');
+                }
+                
+                // 隐藏错误信息
+                loginError.classList.add('hidden');
+                
+                // 显示后台页面
+                showAdminPage();
+                
+                // 显示通知
+                showNotification('登录成功', '欢迎回来，管理员！', 'success');
+            } else {
+                // 登录失败
+                errorMessage.textContent = '用户名或密码错误';
+                loginError.classList.remove('hidden');
+                
+                // 动画效果
+                gsap.fromTo(loginError, 
+                    { opacity: 0, y: -10 },
+                    { opacity: 1, y: 0, duration: 0.3 }
+                );
+            }
+        }
+        
+        // 退出登录
+        function handleLogout() {
+            // 清除登录状态
+            localStorage.removeItem('isLoggedIn');
+            isLoggedIn = false;
+            
+            // 显示登录页面
+            showLoginPage();
+            
+            // 显示通知
+            showNotification('已退出登录', '您已成功退出系统。', 'info');
+        }
+        
+        // 切换侧边栏
+        function toggleSidebarCollapse() {
+            isSidebarCollapsed = !isSidebarCollapsed;
+            
+            if (isSidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+            } else {
+                sidebar.classList.remove('collapsed');
+            }
+        }
+        
+        // 切换主题
+        function toggleTheme() {
+            // 切换主题类
+            document.documentElement.classList.toggle('dark');
+            
+            // 保存主题偏好
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            
+            // 更新图表
+            updateCharts();
+            
+            // 强制重新渲染以确保所有样式生效
+            setTimeout(() => {
+                document.body.style.display = 'none';
+                document.body.offsetHeight; // 触发重排
+                document.body.style.display = '';
+            }, 10);
+        }
+        
+        // 切换用户菜单
+        function toggleUserMenu() {
+            userMenu.classList.toggle('hidden');
+        }
+        
+        // 切换密码可见性
+        function togglePasswordVisibility() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // 切换图标
+            togglePassword.innerHTML = type === 'password' ? '<i class="fa fa-eye"></i>' : '<i class="fa fa-eye-slash"></i>';
+        }
+        
+        // 切换颜色输入
+        function syncColorInputs() {
+            prizeColorText.value = prizeColor.value;
+        }
+        
+        function syncColorPicker() {
+            prizeColor.value = prizeColorText.value;
+        }
+        
+        // 更新图标预览
+        function updateIconPreview() {
+            previewIcon.className = `fa ${prizeIcon.value} absolute left-3 top-1/2 transform -translate-y-1/2 text-primary dark:text-dark-secondary text-xl`;
+        }
+        
+        // 显示奖品模态框
+        function showPrizeModal(prizeId = null) {
+            editingPrizeId = prizeId;
+            
+            if (prizeId) {
+                // 编辑模式
+                const prize = prizes.find(p => p.id === prizeId);
+                if (prize) {
+                    prizeModalTitle.textContent = '编辑奖品';
+                    document.getElementById('prizeId').value = prize.id;
+                    document.getElementById('prizeName').value = prize.name;
+                    document.getElementById('prizeDescription').value = prize.description;
+                    document.getElementById('prizeProbability').value = prize.probability;
+                    prizeColor.value = prize.color;
+                    prizeColorText.value = prize.color;
+                    prizeIcon.value = prize.icon;
+                    updateIconPreview();
+                }
+            } else {
+                // 添加模式
+                prizeModalTitle.textContent = '添加奖品';
+                prizeForm.reset();
+                document.getElementById('prizeId').value = '';
+                prizeColor.value = '#3b82f6';
+                prizeColorText.value = '#3b82f6';
+                prizeIcon.value = 'fa-gift';
+                updateIconPreview();
+            }
+            
+            // 显示模态框
+            prizeModal.classList.remove('hidden');
+            setTimeout(() => {
+                prizeModal.querySelector('.modal-content').style.transform = 'scale(1)';
+            }, 10);
+        }
+        
+        // 隐藏奖品模态框
+        function hidePrizeModal() {
+            prizeModal.querySelector('.modal-content').style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                prizeModal.classList.add('hidden');
+                editingPrizeId = null;
+            }, 300);
+        }
+        
+        // 保存奖品
+        function savePrize(e) {
+            e.preventDefault();
+            
+            const id = parseInt(document.getElementById('prizeId').value);
+            const name = document.getElementById('prizeName').value;
+            const description = document.getElementById('prizeDescription').value;
+            const probability = parseFloat(document.getElementById('prizeProbability').value);
+            const color = prizeColor.value;
+            const icon = prizeIcon.value;
+            
+            if (editingPrizeId) {
+                // 更新现有奖品
+                const index = prizes.findIndex(p => p.id === editingPrizeId);
+                if (index !== -1) {
+                    prizes[index] = { id: editingPrizeId, name, description, probability, color, icon };
+                    showNotification('更新成功', '奖品信息已更新。', 'success');
+                }
+            } else {
+                // 添加新奖品
+                const newId = prizes.length > 0 ? Math.max(...prizes.map(p => p.id)) + 1 : 1;
+                prizes.push({ id: newId, name, description, probability, color, icon });
+                showNotification('添加成功', '新奖品已添加。', 'success');
+            }
+            
+            // 保存到本地存储
+            localStorage.setItem('prizes', JSON.stringify(prizes));
+            
+            // 更新UI
+            initPrizeManagement();
+            initProbabilitySettings();
+            
+            // 隐藏模态框
+            hidePrizeModal();
+        }
+        
+        // 删除奖品
+        function deletePrize(prizeId) {
+            showConfirmModal(
+                '确认删除',
+                '您确定要删除此奖品吗？此操作无法撤销。',
+                () => {
+                    // 执行删除
+                    prizes = prizes.filter(p => p.id !== prizeId);
+                    
+                    // 保存到本地存储
+                    localStorage.setItem('prizes', JSON.stringify(prizes));
+                    
+                    // 更新UI
+                    initPrizeManagement();
+                    initProbabilitySettings();
+                    
+                    // 显示通知
+                    showNotification('删除成功', '奖品已删除。', 'success');
+                }
+            );
+        }
+        
+        // 显示确认对话框
+        function showConfirmModal(title, message, callback) {
+            confirmTitle.textContent = title;
+            confirmMessage.textContent = message;
+            
+            // 保存回调函数
+            confirmAction.onclick = () => {
+                hideConfirmModal();
+                callback();
+            };
+            
+            // 显示模态框
+            confirmModal.classList.remove('hidden');
+            setTimeout(() => {
+                confirmModal.querySelector('.modal-content').style.transform = 'scale(1)';
+            }, 10);
+        }
+        
+        // 隐藏确认对话框
+        function hideConfirmModal() {
+            confirmModal.querySelector('.modal-content').style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                confirmModal.classList.add('hidden');
+            }, 300);
+        }
+        
+        // 显示通知
+        function showNotification(title, message, type = 'info') {
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            
+            // 设置图标和颜色
+            switch (type) {
+                case 'success':
+                    notificationIcon.className = 'fa fa-check-circle text-green-500 text-xl';
+                    notification.classList.remove('border-blue-500', 'border-yellow-500', 'border-red-500');
+                    notification.classList.add('border-green-500');
+                    break;
+                case 'error':
+                    notificationIcon.className = 'fa fa-exclamation-circle text-red-500 text-xl';
+                    notification.classList.remove('border-blue-500', 'border-yellow-500', 'border-green-500');
+                    notification.classList.add('border-red-500');
+                    break;
+                case 'warning':
+                    notificationIcon.className = 'fa fa-exclamation-triangle text-yellow-500 text-xl';
+                    notification.classList.remove('border-blue-500', 'border-red-500', 'border-green-500');
+                    notification.classList.add('border-yellow-500');
+                    break;
+                default:
+                    notificationIcon.className = 'fa fa-info-circle text-blue-500 text-xl';
+                    notification.classList.remove('border-red-500', 'border-yellow-500', 'border-green-500');
+                    notification.classList.add('border-blue-500');
+            }
+            
+            // 显示通知
+            notification.classList.remove('translate-x-full');
+            
+            // 自动隐藏
+            clearTimeout(notification.hideTimeout);
+            notification.hideTimeout = setTimeout(() => {
+                hideNotification();
+            }, 5000);
+        }
+        
+        // 隐藏通知
+        function hideNotification() {
+            notification.classList.add('translate-x-full');
+        }
+        
+        // 切换部分
+        function switchSection(sectionId) {
+            // 更新当前部分
+            currentSection = sectionId;
+            
+            // 更新侧边栏活动状态
+            sidebarItems.forEach(item => {
+                if (item.dataset.section === sectionId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+            
+            // 显示对应部分
+            sections.forEach(section => {
+                if (section.id === sectionId) {
+                    section.classList.remove('hidden');
+                    
+                    // 添加动画效果
+                    gsap.fromTo(section.querySelectorAll('h2, .grid > div, table'),
+                        { opacity: 0, y: 20 },
+                        { opacity: 1, y: 0, duration: 0.3, stagger: 0.1 }
+                    );
+                } else {
+                    section.classList.add('hidden');
+                }
+            });
+        }
+        
+        // 初始化仪表盘
+        function initDashboard() {
+            // 更新统计数据
+            document.getElementById('totalPrizes').textContent = prizes.length;
+            document.getElementById('totalSpins').textContent = spinHistory.length;
+            
+            // 计算中奖率
+            const winCount = spinHistory.filter(record => record.isWin).length;
+            const winRate = spinHistory.length > 0 ? Math.round((winCount / spinHistory.length) * 100) : 0;
+            document.getElementById('winRate').textContent = `${winRate}%`;
+            
+            // 模拟活跃用户数
+            document.getElementById('activeUsers').textContent = Math.floor(Math.random() * 50);
+            
+            // 初始化图表
+            initSpinTrendChart();
+            initPrizeDistributionChart();
+        }
+        
+        // 初始化抽奖趋势图表
+        function initSpinTrendChart() {
+            const ctx = document.getElementById('spinTrendChart').getContext('2d');
+            
+            // 销毁现有图表
+            if (spinTrendChart) {
+                spinTrendChart.destroy();
+            }
+            
+            // 生成过去7天的数据
+            const days = [];
+            const spinCounts = [];
+            const winCounts = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                
+                const day = date.getDate();
+                const month = date.getMonth() + 1;
+                days.push(`${month}/${day}`);
+                
+                // 过滤当天的记录
+                const dayRecords = spinHistory.filter(record => {
+                    const recordDate = new Date(record.timestamp);
+                    return recordDate.getDate() === date.getDate() && 
+                           recordDate.getMonth() === date.getMonth() && 
+                           recordDate.getFullYear() === date.getFullYear();
+                });
+                
+                spinCounts.push(dayRecords.length);
+                winCounts.push(dayRecords.filter(record => record.isWin).length);
+            }
+            
+            // 创建图表
+            spinTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [
+                        {
+                            label: '总抽奖次数',
+                            data: spinCounts,
+                            borderColor: document.documentElement.classList.contains('dark') ? '#3b82f6' : '#2563eb',
+                            backgroundColor: document.documentElement.classList.contains('dark') ? 'rgba(59, 130, 246, 0.1)' : 'rgba(37, 99, 235, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: '中奖次数',
+                            data: winCounts,
+                            borderColor: document.documentElement.classList.contains('dark') ? '#10b981' : '#059669',
+                            backgroundColor: document.documentElement.classList.contains('dark') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(5, 150, 105, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 初始化奖品分布图表
+        function initPrizeDistributionChart() {
+            const ctx = document.getElementById('prizeDistributionChart').getContext('2d');
+            
+            // 销毁现有图表
+            if (prizeDistributionChart) {
+                prizeDistributionChart.destroy();
+            }
+            
+            // 计算每个奖品的中奖次数
+            const prizeCounts = {};
+            prizes.forEach(prize => {
+                prizeCounts[prize.id] = 0;
+            });
+            
+            spinHistory.forEach(record => {
+                if (record.isWin && record.prize && record.prize.id) {
+                    prizeCounts[record.prize.id] = (prizeCounts[record.prize.id] || 0) + 1;
+                }
+            });
+            
+            // 创建图表
+            prizeDistributionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: prizes.map(prize => prize.name),
+                    datasets: [{
+                        data: prizes.map(prize => prizeCounts[prize.id] || 0),
+                        backgroundColor: prizes.map(prize => prize.color),
+                        borderWidth: 2,
+                        borderColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 初始化奖品管理
+        function initPrizeManagement() {
+            const tableBody = document.getElementById('prizeTableBody');
+            tableBody.innerHTML = '';
+            
+            // 更新总数
+            document.getElementById('totalPrizesCount').textContent = prizes.length;
+            document.getElementById('showingPrizes').textContent = prizes.length;
+            
+            // 渲染奖品列表
+            prizes.forEach(prize => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-800 dark:text-white">${prize.id}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3" style="background-color: ${prize.color}">
+                                <i class="fa ${prize.icon} text-white"></i>
+                            </div>
+                            <div class="text-sm font-medium text-gray-800 dark:text-white">${prize.name}</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-600 dark:text-gray-400">${prize.description || '-'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-800 dark:text-white">${prize.probability}%</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: ${prize.color}"></div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">${prize.color}</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-800 dark:text-white">${prize.icon}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-primary dark:text-dark-secondary hover:text-accent dark:hover:text-dark-primary mr-3 edit-prize" data-id="${prize.id}">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                        <button class="text-red-500 hover:text-red-600 delete-prize" data-id="${prize.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // 添加编辑和删除事件
+            document.querySelectorAll('.edit-prize').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const prizeId = parseInt(btn.dataset.id);
+                    showPrizeModal(prizeId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-prize').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const prizeId = parseInt(btn.dataset.id);
+                    const prize = prizes.find(p => p.id === prizeId);
+                    
+                    if (prize) {
+                        deletePrize(prizeId);
+                    }
+                });
+            });
+        }
+        
+        // 初始化概率设置
+        function initProbabilitySettings() {
+            const slidersContainer = document.getElementById('probabilitySliders');
+            slidersContainer.innerHTML = '';
+            
+            // 创建概率滑块
+            prizes.forEach(prize => {
+                const sliderItem = document.createElement('div');
+                sliderItem.className = 'probability-slider-item';
+                
+                sliderItem.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                            <div class="w-6 h-6 rounded-full flex items-center justify-center mr-2" style="background-color: ${prize.color}">
+                                <i class="fa ${prize.icon} text-white text-xs"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-800 dark:text-white">${prize.name}</span>
+                        </div>
+                        <span class="text-sm font-bold text-primary dark:text-dark-secondary probability-value">${prize.probability}%</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <input type="range" min="0" max="100" value="${prize.probability}" class="probability-slider flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer" data-id="${prize.id}">
+                        <input type="number" min="0" max="100" value="${prize.probability}" class="probability-input w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-700 text-gray-800 dark:text-white" data-id="${prize.id}">
+                    </div>
+                `;
+                
+                slidersContainer.appendChild(sliderItem);
+            });
+            
+            // 添加滑块事件
+            document.querySelectorAll('.probability-slider').forEach(slider => {
+                slider.addEventListener('input', updateProbabilityValues);
+            });
+            
+            document.querySelectorAll('.probability-input').forEach(input => {
+                input.addEventListener('input', updateProbabilityValues);
+            });
+            
+            // 初始化概率预览图表
+            initProbabilityPreviewChart();
+            
+            // 更新总概率
+            updateTotalProbability();
+        }
+        
+        // 更新概率值
+        function updateProbabilityValues() {
+            // 获取所有滑块和输入框
+            const sliders = document.querySelectorAll('.probability-slider');
+            const inputs = document.querySelectorAll('.probability-input');
+            const values = document.querySelectorAll('.probability-value');
+            
+            // 更新显示的值
+            sliders.forEach((slider, index) => {
+                const value = parseFloat(slider.value);
+                inputs[index].value = value;
+                values[index].textContent = `${value}%`;
+            });
+            
+            // 更新总概率
+            updateTotalProbability();
+            
+            // 更新预览图表
+            updateProbabilityPreviewChart();
+        }
+        
+        // 更新总概率
+        function updateTotalProbability() {
+            const sliders = document.querySelectorAll('.probability-slider');
+            let total = 0;
+            
+            sliders.forEach(slider => {
+                total += parseFloat(slider.value);
+            });
+            
+            const totalElement = document.getElementById('totalProbability');
+            const errorElement = document.getElementById('probabilityError');
+            const saveButton = document.getElementById('saveProbabilities');
+            
+            totalElement.textContent = `${total.toFixed(1)}%`;
+            
+            // 检查是否为100%
+            if (Math.abs(total - 100) < 0.1) {
+                totalElement.classList.remove('text-red-500');
+                totalElement.classList.add('text-primary', 'dark:text-dark-secondary');
+                errorElement.classList.add('hidden');
+                saveButton.disabled = false;
+            } else {
+                totalElement.classList.remove('text-primary', 'dark:text-dark-secondary');
+                totalElement.classList.add('text-red-500');
+                errorElement.classList.remove('hidden');
+                saveButton.disabled = true;
+            }
+        }
+        
+        // 初始化概率预览图表
+        function initProbabilityPreviewChart() {
+            const ctx = document.getElementById('probabilityPreviewChart').getContext('2d');
+            
+            // 销毁现有图表
+            if (probabilityPreviewChart) {
+                probabilityPreviewChart.destroy();
+            }
+            
+            // 创建图表
+            probabilityPreviewChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: prizes.map(prize => prize.name),
+                    datasets: [{
+                        data: prizes.map(prize => prize.probability),
+                        backgroundColor: prizes.map(prize => prize.color),
+                        borderWidth: 2,
+                        borderColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    return `${label}: ${value}%`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+        
+        // 更新概率预览图表
+        function updateProbabilityPreviewChart() {
+            const sliders = document.querySelectorAll('.probability-slider');
+            const probabilities = Array.from(sliders).map(slider => parseFloat(slider.value));
+            
+            probabilityPreviewChart.data.datasets[0].data = probabilities;
+            probabilityPreviewChart.update();
+        }
+        
+        // 保存概率设置
+        function saveProbabilities() {
+            const sliders = document.querySelectorAll('.probability-slider');
+            
+            // 更新奖品概率
+            sliders.forEach(slider => {
+                const prizeId = parseInt(slider.dataset.id);
+                const probability = parseFloat(slider.value);
+                const prize = prizes.find(p => p.id === prizeId);
+                
+                if (prize) {
+                    prize.probability = probability;
+                }
+            });
+            
+            // 保存到本地存储
+            localStorage.setItem('prizes', JSON.stringify(prizes));
+            
+            // 更新奖品管理页面
+            initPrizeManagement();
+            
+            // 显示通知
+            showNotification('保存成功', '概率设置已保存。', 'success');
+        }
+        
+        // 重置概率设置
+        function resetProbabilities() {
+            showConfirmModal(
+                '确认重置',
+                '您确定要将所有概率重置为默认值吗？',
+                () => {
+                    // 重置为默认概率
+                    const defaultProbabilities = [5, 10, 15, 20, 25, 25];
+                    
+                    prizes.forEach((prize, index) => {
+                        if (index < defaultProbabilities.length) {
+                            prize.probability = defaultProbabilities[index];
+                        } else {
+                            prize.probability = 0;
+                        }
+                    });
+                    
+                    // 保存到本地存储
+                    localStorage.setItem('prizes', JSON.stringify(prizes));
+                    
+                    // 更新概率设置页面
+                    initProbabilitySettings();
+                    
+                    // 显示通知
+                    showNotification('重置成功', '概率已重置为默认值。', 'success');
+                }
+            );
+        }
+        
+        // 初始化历史记录管理
+        function initHistoryManagement() {
+            const tableBody = document.getElementById('historyTableBody');
+            tableBody.innerHTML = '';
+            
+            // 更新总数
+            document.getElementById('totalHistoryCount').textContent = spinHistory.length;
+            document.getElementById('showingHistory').textContent = spinHistory.length;
+            
+            if (spinHistory.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                            暂无抽奖记录
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // 按时间倒序排列
+            const sortedHistory = [...spinHistory].reverse();
+            
+            // 渲染历史记录
+            sortedHistory.forEach((record, index) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
+                
+                const date = new Date(record.timestamp);
+                const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-800 dark:text-white">${index + 1}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3" style="background-color: ${record.prize.color}">
+                                <i class="fa ${record.prize.icon} text-white"></i>
+                            </div>
+                            <div class="text-sm font-medium text-gray-800 dark:text-white">${record.prize.name}</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${record.isWin ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200'}">
+                            ${record.isWin ? '中奖' : '未中奖'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-600 dark:text-gray-400">${formattedDate}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-red-500 hover:text-red-600 delete-history" data-index="${index}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // 添加删除事件
+            document.querySelectorAll('.delete-history').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = parseInt(btn.dataset.index);
+                    deleteHistoryRecord(index);
+                });
+            });
+        }
+        
+        // 删除历史记录
+        function deleteHistoryRecord(index) {
+            showConfirmModal(
+                '确认删除',
+                '您确定要删除此条记录吗？此操作无法撤销。',
+                () => {
+                    // 从排序后的数组中删除
+                    const sortedHistory = [...spinHistory].reverse();
+                    sortedHistory.splice(index, 1);
+                    
+                    // 保存回原数组
+                    spinHistory = sortedHistory.reverse();
+                    
+                    // 保存到本地存储
+                    localStorage.setItem('spinHistory', JSON.stringify(spinHistory));
+                    
+                    // 更新UI
+                    initHistoryManagement();
+                    initDashboard();
+                    
+                    // 显示通知
+                    showNotification('删除成功', '记录已删除。', 'success');
+                }
+            );
+        }
+        
+        // 清空历史记录
+        function clearHistory() {
+            showConfirmModal(
+                '确认清空',
+                '您确定要清空所有抽奖记录吗？此操作无法撤销。',
+                () => {
+                    // 清空数组
+                    spinHistory = [];
+                    
+                    // 保存到本地存储
+                    localStorage.removeItem('spinHistory');
+                    
+                    // 更新UI
+                    initHistoryManagement();
+                    initDashboard();
+                    
+                    // 显示通知
+                    showNotification('清空成功', '所有记录已清空。', 'success');
+                }
+            );
+        }
+        
+        // 导出历史记录
+        function exportHistory() {
+            if (spinHistory.length === 0) {
+                showNotification('导出失败', '没有可导出的记录。', 'error');
+                return;
+            }
+            
+            // 创建CSV内容
+            let csvContent = "ID,奖品名称,结果,时间\n";
+            
+            spinHistory.forEach((record, index) => {
+                const date = new Date(record.timestamp);
+                const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+                
+                csvContent += `${index + 1},${record.prize.name},${record.isWin ? '中奖' : '未中奖'},${formattedDate}\n`;
+            });
+            
+            // 创建Blob对象
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `抽奖记录_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // 显示通知
+            showNotification('导出成功', '记录已导出为CSV文件。', 'success');
+        }
+        
+        // 初始化设置
+        function initSettings() {
+            // 加载设置
+            const settings = JSON.parse(localStorage.getItem('settings')) || {
+                siteName: '幸运转盘抽奖',
+                maxSpins: 3,
+                spinCooldown: 0,
+                wheelSpeed: 'medium',
+                systemStatus: 'active'
+            };
+            
+            // 填充表单
+            document.getElementById('siteName').value = settings.siteName;
+            document.getElementById('maxSpins').value = settings.maxSpins;
+            document.getElementById('spinCooldown').value = settings.spinCooldown;
+            document.getElementById('wheelSpeed').value = settings.wheelSpeed;
+            
+            // 设置系统状态
+            document.querySelector(`input[name="systemStatus"][value="${settings.systemStatus}"]`).checked = true;
+        }
+        
+        // 保存设置
+        function saveSettings(e) {
+            e.preventDefault();
+            
+            // 获取表单数据
+            const settings = {
+                siteName: document.getElementById('siteName').value,
+                maxSpins: parseInt(document.getElementById('maxSpins').value),
+                spinCooldown: parseInt(document.getElementById('spinCooldown').value),
+                wheelSpeed: document.getElementById('wheelSpeed').value,
+                systemStatus: document.querySelector('input[name="systemStatus"]:checked').value
+            };
+            
+            // 保存到本地存储
+            localStorage.setItem('settings', JSON.stringify(settings));
+            
+            // 显示通知
+            showNotification('保存成功', '系统设置已保存。', 'success');
+        }
+        
+        // 保存管理员账户信息
+        function saveAdminAccount(e) {
+            e.preventDefault();
+            
+            const adminUsername = document.getElementById('adminUsername').value.trim();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // 验证当前密码
+            if (currentPassword !== adminCredentials.password) {
+                showNotification('更新失败', '当前密码输入错误。', 'error');
+                return;
+            }
+            
+            // 验证新密码
+            if (newPassword && newPassword !== confirmPassword) {
+                showNotification('更新失败', '两次输入的新密码不一致。', 'error');
+                return;
+            }
+            
+            // 更新账户信息
+            if (adminUsername) {
+                adminCredentials.username = adminUsername;
+            }
+            
+            if (newPassword) {
+                adminCredentials.password = newPassword;
+            }
+            
+            // 保存到本地存储
+            localStorage.setItem('adminCredentials', JSON.stringify(adminCredentials));
+            
+            // 重置表单
+            document.getElementById('adminForm').reset();
+            
+            // 显示通知
+            showNotification('更新成功', '管理员账户信息已更新。', 'success');
+        }
+        
+        // 重置数据
+        function resetData() {
+            showConfirmModal(
+                '确认重置',
+                '您确定要重置所有数据吗？此操作将删除所有奖品、记录和设置，且无法撤销。',
+                () => {
+                    // 重置奖品
+                    prizes = [
+                        { id: 1, name: '一等奖', description: 'iPhone 15 Pro', probability: 5, color: '#FF6B6B', icon: 'fa-apple' },
+                        { id: 2, name: '二等奖', description: 'AirPods Pro', probability: 10, color: '#4ECDC4', icon: 'fa-headphones' },
+                        { id: 3, name: '三等奖', description: '100元京东卡', probability: 15, color: '#45B7D1', icon: 'fa-gift' },
+                        { id: 4, name: '四等奖', description: '50元话费', probability: 20, color: '#96CEB4', icon: 'fa-mobile' },
+                        { id: 5, name: '五等奖', description: '10元红包', probability: 25, color: '#FFEAA7', icon: 'fa-money' },
+                        { id: 6, name: '谢谢参与', description: '再接再厉', probability: 25, color: '#DDA0DD', icon: 'fa-smile-o' }
+                    ];
+                    
+                    // 重置历史记录
+                    spinHistory = [];
+                    
+                    // 重置设置
+                    const settings = {
+                        siteName: '幸运转盘抽奖',
+                        maxSpins: 3,
+                        spinCooldown: 0,
+                        wheelSpeed: 'medium',
+                        systemStatus: 'active'
+                    };
+                    
+                    // 保存到本地存储
+                    localStorage.setItem('prizes', JSON.stringify(prizes));
+                    localStorage.removeItem('spinHistory');
+                    localStorage.setItem('settings', JSON.stringify(settings));
+                    
+                    // 更新UI
+                    initDashboard();
+                    initPrizeManagement();
+                    initProbabilitySettings();
+                    initHistoryManagement();
+                    initSettings();
+                    
+                    // 显示通知
+                    showNotification('重置成功', '所有数据已重置为默认值。', 'success');
+                }
+            );
+        }
+        
+        // 导出数据
+        function exportData() {
+            // 创建数据对象
+            const data = {
+                prizes: prizes,
+                spinHistory: spinHistory,
+                settings: JSON.parse(localStorage.getItem('settings')) || {},
+                exportDate: new Date().toISOString()
+            };
+            
+            // 创建Blob对象
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `幸运转盘数据_${new Date().toISOString().split('T')[0]}.json`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // 显示通知
+            showNotification('导出成功', '数据已导出为JSON文件。', 'success');
+        }
+        
+        // 导入数据
+        function importData() {
+            // 创建文件输入
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        
+                        // 验证数据格式
+                        if (!data.prizes || !Array.isArray(data.prizes)) {
+                            throw new Error('无效的数据格式');
+                        }
+                        
+                        showConfirmModal(
+                            '确认导入',
+                            '您确定要导入此数据吗？这将覆盖当前所有数据。',
+                            () => {
+                                // 导入数据
+                                if (data.prizes) {
+                                    prizes = data.prizes;
+                                    localStorage.setItem('prizes', JSON.stringify(prizes));
+                                }
+                                
+                                if (data.spinHistory) {
+                                    spinHistory = data.spinHistory;
+                                    localStorage.setItem('spinHistory', JSON.stringify(spinHistory));
+                                }
+                                
+                                if (data.settings) {
+                                    localStorage.setItem('settings', JSON.stringify(data.settings));
+                                }
+                                
+                                // 更新UI
+                                initDashboard();
+                                initPrizeManagement();
+                                initProbabilitySettings();
+                                initHistoryManagement();
+                                initSettings();
+                                
+                                // 显示通知
+                                showNotification('导入成功', '数据已成功导入。', 'success');
+                            }
+                        );
+                    } catch (error) {
+                        showNotification('导入失败', '无效的文件格式或内容。', 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+        
+        // 清除缓存
+        function clearCache() {
+            showConfirmModal(
+                '确认清除',
+                '您确定要清除所有缓存吗？这将删除临时数据，但不会影响您的设置和记录。',
+                () => {
+                    // 清除localStorage中的缓存项
+                    const keysToRemove = ['tempData', 'cache', 'lastUpdated'];
+                    keysToRemove.forEach(key => {
+                        localStorage.removeItem(key);
+                    });
+                    
+                    // 显示通知
+                    showNotification('清除成功', '缓存已清除。', 'success');
+                }
+            );
+        }
+        
+        // 更新所有图表
+        function updateCharts() {
+            if (spinTrendChart) {
+                spinTrendChart.options.scales.x.ticks.color = document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569';
+                spinTrendChart.options.scales.y.ticks.color = document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569';
+                spinTrendChart.options.scales.x.grid.color = document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                spinTrendChart.options.scales.y.grid.color = document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                spinTrendChart.options.plugins.legend.labels.color = document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569';
+                spinTrendChart.update();
+            }
+            
+            if (prizeDistributionChart) {
+                prizeDistributionChart.options.plugins.legend.labels.color = document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569';
+                prizeDistributionChart.data.datasets[0].borderColor = document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff';
+                prizeDistributionChart.update();
+            }
+            
+            if (probabilityPreviewChart) {
+                probabilityPreviewChart.options.plugins.legend.labels.color = document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#475569';
+                probabilityPreviewChart.data.datasets[0].borderColor = document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff';
+                probabilityPreviewChart.update();
+            }
+        }
+        
+        // 添加事件监听器
+        function addEventListeners() {
+            // 登录表单提交
+            loginForm.addEventListener('submit', handleLogin);
+            
+            // 切换密码可见性
+            togglePassword.addEventListener('click', togglePasswordVisibility);
+            
+            // 切换侧边栏
+            toggleSidebar.addEventListener('click', toggleSidebarCollapse);
+            
+            // 侧边栏菜单项点击
+            sidebarItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const sectionId = item.dataset.section;
+                    switchSection(sectionId);
+                });
+            });
+            
+            // 切换用户菜单
+            userMenuBtn.addEventListener('click', toggleUserMenu);
+            
+            // 点击其他地方关闭用户菜单
+            document.addEventListener('click', (e) => {
+                if (!userMenuBtn.contains(e.target) && !userMenu.contains(e.target)) {
+                    userMenu.classList.add('hidden');
+                }
+            });
+            
+            // 退出登录
+            logoutBtn.addEventListener('click', handleLogout);
+            
+            // 主题切换
+            themeToggle.addEventListener('click', toggleTheme);
+            
+            // 添加奖品按钮
+            addPrizeBtn.addEventListener('click', () => showPrizeModal());
+            
+            // 关闭奖品模态框
+            closePrizeModal.addEventListener('click', hidePrizeModal);
+            cancelPrize.addEventListener('click', hidePrizeModal);
+            
+            // 奖品表单提交
+            prizeForm.addEventListener('submit', savePrize);
+            
+            // 颜色输入同步
+            prizeColor.addEventListener('input', syncColorInputs);
+            prizeColorText.addEventListener('input', syncColorPicker);
+            
+            // 图标预览
+            prizeIcon.addEventListener('input', updateIconPreview);
+            
+            // 关闭确认对话框
+            cancelConfirm.addEventListener('click', hideConfirmModal);
+            
+            // 关闭通知
+            closeNotification.addEventListener('click', hideNotification);
+            
+            // 点击模态框背景关闭
+            prizeModal.addEventListener('click', (e) => {
+                if (e.target === prizeModal) {
+                    hidePrizeModal();
+                }
+            });
+            
+            confirmModal.addEventListener('click', (e) => {
+                if (e.target === confirmModal) {
+                    hideConfirmModal();
+                }
+            });
+            
+            // 键盘事件
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    if (!prizeModal.classList.contains('hidden')) {
+                        hidePrizeModal();
+                    }
+                    if (!confirmModal.classList.contains('hidden')) {
+                        hideConfirmModal();
+                    }
+                }
+            });
+            
+            // 保存概率设置
+            document.getElementById('saveProbabilities').addEventListener('click', saveProbabilities);
+            
+            // 重置概率设置
+            document.getElementById('resetProbabilities').addEventListener('click', resetProbabilities);
+            
+            // 清空历史记录
+            document.getElementById('clearHistory').addEventListener('click', clearHistory);
+            
+            // 导出历史记录
+            document.getElementById('exportHistory').addEventListener('click', exportHistory);
+            
+            // 保存设置
+            document.getElementById('settingsForm').addEventListener('submit', saveSettings);
+            
+            // 保存管理员账户信息
+            document.getElementById('adminForm').addEventListener('submit', saveAdminAccount);
+            
+            // 重置数据
+            document.getElementById('resetData').addEventListener('click', resetData);
+            
+            // 导出数据
+            document.getElementById('exportData').addEventListener('click', exportData);
+            
+            // 导入数据
+            document.getElementById('importData').addEventListener('click', importData);
+            
+            // 清除缓存
+            document.getElementById('clearCache').addEventListener('click', clearCache);
+            
+            // 刷新奖品列表
+            document.getElementById('refreshPrizes').addEventListener('click', initPrizeManagement);
+            
+            // 奖品搜索
+            document.getElementById('prizeSearch').addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const rows = document.querySelectorAll('#prizeTableBody tr');
+                
+                rows.forEach(row => {
+                    const prizeName = row.querySelector('td:nth-child(2) .text-sm').textContent.toLowerCase();
+                    const prizeDesc = row.querySelector('td:nth-child(3) .text-sm').textContent.toLowerCase();
+                    
+                    if (prizeName.includes(searchTerm) || prizeDesc.includes(searchTerm)) {
+                        row.classList.remove('hidden');
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+            });
+            
+            // 奖品筛选
+            document.getElementById('prizeFilter').addEventListener('change', (e) => {
+                const filterValue = e.target.value;
+                const rows = document.querySelectorAll('#prizeTableBody tr');
+                
+                rows.forEach(row => {
+                    const prizeName = row.querySelector('td:nth-child(2) .text-sm').textContent.toLowerCase();
+                    
+                    if (filterValue === 'all' || 
+                        (filterValue === 'win' && !prizeName.includes('谢谢参与')) || 
+                        (filterValue === 'thank' && prizeName.includes('谢谢参与'))) {
+                        row.classList.remove('hidden');
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+            });
+            
+            // 历史记录搜索
+            document.getElementById('historySearch').addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const rows = document.querySelectorAll('#historyTableBody tr');
+                
+                rows.forEach(row => {
+                    const prizeName = row.querySelector('td:nth-child(2) .text-sm').textContent.toLowerCase();
+                    
+                    if (prizeName.includes(searchTerm)) {
+                        row.classList.remove('hidden');
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+            });
+            
+            // 历史记录筛选
+            document.getElementById('historyFilter').addEventListener('change', (e) => {
+                const filterValue = e.target.value;
+                const rows = document.querySelectorAll('#historyTableBody tr');
+                
+                rows.forEach(row => {
+                    const resultBadge = row.querySelector('td:nth-child(3) span');
+                    const isWin = resultBadge.textContent.trim() === '中奖';
+                    
+                    if (filterValue === 'all' || 
+                        (filterValue === 'win' && isWin) || 
+                        (filterValue === 'thank' && !isWin)) {
+                        row.classList.remove('hidden');
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+            });
+        }
+        
+        // 添加抽奖次数功能
+        function addSpins() {
+            const addSpinsInput = document.getElementById('addSpinsInput');
+            const spinsToAdd = parseInt(addSpinsInput.value);
+            
+            if (isNaN(spinsToAdd) || spinsToAdd < 1) {
+                showNotification('错误', '请输入有效的抽奖次数', 'error');
+                return;
+            }
+            
+            // 获取系统设置中的最大抽奖次数
+            const savedSettings = localStorage.getItem('settings');
+            let maxSpins = 3; // 默认值
+            
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                maxSpins = settings.maxSpins || 3;
+            }
+            
+            // 获取当前的剩余抽奖次数
+            let remainingSpins = parseInt(localStorage.getItem('remainingSpins')) || 0;
+            let newTotalSpins = remainingSpins + spinsToAdd;
+            
+            // 确保不超过最大抽奖次数
+            if (newTotalSpins > maxSpins) {
+                const actualAdded = maxSpins - remainingSpins;
+                if (actualAdded <= 0) {
+                    showNotification('提示', '用户抽奖次数已达上限', 'info');
+                    addSpinsInput.value = '';
+                    return;
+                }
+                remainingSpins = maxSpins;
+                showNotification('成功', `已成功添加 ${actualAdded} 次抽奖机会（已达上限）`, 'success');
+            } else {
+                remainingSpins = newTotalSpins;
+                showNotification('成功', `已成功添加 ${spinsToAdd} 次抽奖机会`, 'success');
+            }
+            
+            // 保存更新后的抽奖次数
+            localStorage.setItem('remainingSpins', remainingSpins);
+            
+            // 清空输入框
+            addSpinsInput.value = '';
+            
+            // 更新统计信息
+            updateStatistics();
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 从本地存储加载数据
+            const savedPrizes = localStorage.getItem('prizes');
+            if (savedPrizes) {
+                prizes = JSON.parse(savedPrizes);
+            }
+            
+            const savedHistory = localStorage.getItem('spinHistory');
+            if (savedHistory) {
+                spinHistory = JSON.parse(savedHistory);
+            }
+            
+            init();
+            
+            // 添加抽奖次数按钮事件
+            document.getElementById('addSpinsBtn').addEventListener('click', addSpins);
+            
+            // 回车添加抽奖次数
+            document.getElementById('addSpinsInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addSpins();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
